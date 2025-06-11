@@ -1,11 +1,11 @@
 package main
 
 import (
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 
-	"github.com/sunnyyssh/designing-software-cw2/gateway/internal/router"
+	"github.com/sunnyyssh/designing-software-cw3/gateway/router"
 	"gopkg.in/yaml.v3"
 )
 
@@ -14,13 +14,13 @@ const configPath = "/etc/gateway/config.yaml"
 func main() {
 	config, err := readConfig(configPath)
 	if err != nil {
-		log.Fatalf("failed to read config: %v", err)
+		slog.Error("failed to read config", "error", err)
 	}
 
-	router := router.New(config)
+	router := router.New(config, slog.Default())
 
 	if err := http.ListenAndServe(":80", router); err != nil {
-		log.Fatal(err)
+		slog.Error("serving http failed", "error", err)
 	}
 }
 
@@ -31,7 +31,7 @@ func readConfig(path string) (*router.Config, error) {
 	}
 
 	var rawConfig struct {
-		Locations map[string]struct{
+		Locations map[string]struct {
 			URL string `yaml:"url"`
 		} `yaml:"locations"`
 	}

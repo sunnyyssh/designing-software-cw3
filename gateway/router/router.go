@@ -3,7 +3,7 @@ package router
 import (
 	"bytes"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"strings"
 )
@@ -19,19 +19,21 @@ type Location struct {
 
 type Router struct {
 	// Sorted by prefix length
-	locs []Location
+	locs   []Location
+	logger *slog.Logger
 }
 
-func New(config *Config) *Router {
+func New(config *Config, logger *slog.Logger) *Router {
 	return &Router{
-		locs: config.Locations,
+		locs:   config.Locations,
+		logger: logger,
 	}
 }
 
 func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	path := req.URL.Path
+	logger := r.logger.With("path", req.URL.Path, "method", req.Method)
 
-	log.Printf("got %s %s", req.Method, path)
+	logger.InfoContext(req.Context(), "requiest received")
 
 	var (
 		loc       Location
@@ -40,7 +42,7 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	)
 
 	for _, l := range r.locs {
-		if routePath, ok = strings.CutPrefix(path, l.Prefix); ok {
+		if routePath, ok = strings.CutPrefix(req.URL.Path, l.Prefix); ok {
 			loc = l
 			break
 		}
@@ -59,18 +61,18 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	resp, err := http.DefaultClient.Do(routeReq)
 	if err != nil {
-		log.Printf("failed to route request to %s: %s", loc.URL, err)
+		slog.Error("failed to route request", "url", loc.URL, "error", err)
 		badGateway(w)
 		return
 	}
 
 	if err := write(w, resp); err != nil {
-		log.Printf("failed to copy response: %s", err)
+		slog.Error("failed to copy response", "error", err)
 		internalServerError(w)
 		return
 	}
 
-	log.Printf("ret %s %s %d", req.Method, path, resp.StatusCode)
+	logger.InfoContext(req.Context(), "request served", "code", resp.StatusCode)
 }
 
 func write(w http.ResponseWriter, resp *http.Response) error {
@@ -116,7 +118,6 @@ func notFound(w http.ResponseWriter) error {
 	w.WriteHeader(404)
 	_, err := w.Write(notFoundBody)
 	if err != nil {
-		log.Printf("failed to send response: %s", err)
 		return err
 	}
 
@@ -129,7 +130,6 @@ func internalServerError(w http.ResponseWriter) error {
 	w.WriteHeader(500)
 	_, err := w.Write(internalServerErrorBody)
 	if err != nil {
-		log.Printf("failed to send response: %s", err)
 		return err
 	}
 
@@ -142,7 +142,6 @@ func badGateway(w http.ResponseWriter) error {
 	w.WriteHeader(502)
 	_, err := w.Write(badGatewayBody)
 	if err != nil {
-		log.Printf("failed to send response: %s", err)
 		return err
 	}
 

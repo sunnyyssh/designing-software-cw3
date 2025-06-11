@@ -1,4 +1,4 @@
-module github.com/sunnyyssh/designing-software-cw2/gateway
+module github.com/sunnyyssh/designing-software-cw3/gateway
 
 go 1.24.3
 
