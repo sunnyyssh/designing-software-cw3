@@ -1,14 +1,16 @@
 FROM golang:1.24.2 AS builder
 
+COPY ./shared /shared
+
 WORKDIR /app
 
-COPY gateway/go.mod gateway/go.sum ./
+COPY order/go.mod order/go.sum ./
 
 RUN go mod download
 
-COPY ./gateway .
+COPY ./order .
 
-RUN go build -o main cmd/gateway/main.go
+RUN go build -o main cmd/order/main.go
 
 FROM ubuntu:latest
 
@@ -16,6 +18,6 @@ WORKDIR /app
 
 COPY --from=builder /app/main .
 
-EXPOSE 80
+EXPOSE 5000
 
 CMD ["./main"]

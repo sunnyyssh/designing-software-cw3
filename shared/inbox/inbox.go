@@ -43,7 +43,7 @@ func NewWorker(
 	}
 }
 
-func (w *Worker) RunRead(ctx context.Context) error {
+func (w *Worker) Run(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():

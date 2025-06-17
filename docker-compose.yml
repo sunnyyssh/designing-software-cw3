@@ -1,0 +1,25 @@
+services:
+  gateway:
+    build:
+      context: .
+      dockerfile: gateway/Dockerfile
+  order:
+    build:
+      context: .
+      dockerfile: order/Dockerfile
+  order-pg:
+    image: postgres:latest
+    environment:
+      - POSTGRES_PASSWORD=secret
+      - POSTGRES_USER=order
+      - POSTGRES_DB=order
+  payment:
+    build:
+      context: .
+      dockerfile: payment/Dockerfile
+  payment-pg:
+    image: postgres:latest
+    environment:
+      - POSTGRES_PASSWORD=secret
+      - POSTGRES_USER=payment
+      - POSTGRES_DB=payment

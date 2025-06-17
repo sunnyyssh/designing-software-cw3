@@ -2,7 +2,9 @@ package storage
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/gofrs/uuid"
 	"github.com/jackc/pgx/v5"
@@ -12,13 +14,20 @@ import (
 
 type Repository interface {
 	Account() AccountRepository
+	Outbox() Outbox
 }
 
 type repository struct {
 	db pgx.Tx
 }
 
-func (r *repository) Account() AccountRepository { return &accountRepository{r.db} }
+func (r *repository) Account() AccountRepository {
+	return &accountRepository{r.db}
+}
+
+func (r *repository) Outbox() Outbox {
+	return &outbox{r.db}
+}
 
 type AccountRepository interface {
 	GetAccount(ctx context.Context, userID uuid.UUID) (*model.Account, error)
@@ -54,4 +63,24 @@ func (r *accountRepository) CreateAccount(ctx context.Context, account *model.Ac
 func (r *accountRepository) UpdateAccount(ctx context.Context, account *model.Account) error {
 	_, err := r.db.Exec(ctx, `UPDATE accounts SET amount = $1 WHERE user_id = $2`, account.Amount, account.UserID)
 	return err
+}
+
+type Outbox interface {
+	Add(context.Context, any) error
+}
+
+type outbox struct {
+	db pgx.Tx
+}
+
+func (o *outbox) Add(ctx context.Context, msg any) error {
+	data, err := json.Marshal(msg)
+	if err != nil {
+		return fmt.Errorf("failed to marshal message: %w", err)
+	}
+
+	if _, err := o.db.Exec(ctx, `INSERT INTO outbox (message) VALUES $1`, data); err != nil {
+		return err
+	}
+	return nil
 }

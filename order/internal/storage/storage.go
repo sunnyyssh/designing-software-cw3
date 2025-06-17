@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/sunnyyssh/designing-software-cw3/shared/txcontext"
 )
 
 type Storage struct {
@@ -14,6 +15,11 @@ type Storage struct {
 func NewStorage(db *pgxpool.Pool) *Storage { return &Storage{db} }
 
 func (s *Storage) Begin(ctx context.Context) (Repository, func(context.Context, *error) error, error) {
+	if ctxTx, ok := txcontext.FromContext(ctx); ok {
+		emptyEndTx := func(ctx context.Context, err *error) error { return nil }
+		return &repository{ctxTx}, emptyEndTx, nil
+	}
+
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		return nil, nil, err
