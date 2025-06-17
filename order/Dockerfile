@@ -1,4 +1,4 @@
-FROM golang:1.24.2 AS builder
+FROM golang:1.24.3 AS builder
 
 COPY ./shared /shared
 
@@ -12,7 +12,7 @@ COPY ./order .
 
 RUN go build -o main cmd/order/main.go
 
-FROM ubuntu:latest
+FROM debian:latest
 
 WORKDIR /app
 

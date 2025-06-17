@@ -1,0 +1,5 @@
+locations:
+  /order/:
+    url: http://order:8080/
+  /payment/:
+    url: http://payment:8080/

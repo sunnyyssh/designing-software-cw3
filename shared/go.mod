@@ -1,6 +1,6 @@
 module github.com/sunnyyssh/designing-software-cw3/shared
 
-go 1.24.2
+go 1.24.3
 
 require (
 	github.com/gofrs/uuid v4.4.0+incompatible

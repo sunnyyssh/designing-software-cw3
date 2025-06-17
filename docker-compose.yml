@@ -3,10 +3,15 @@ services:
     build:
       context: .
       dockerfile: gateway/Dockerfile
+    volumes:
+      - "./gateway-config.yaml:/etc/gateway/config.yaml:ro"
   order:
     build:
       context: .
       dockerfile: order/Dockerfile
+    environment:
+      PG_CONN_STRING: postgres://order:secret@order-pg:5432/order?sslmode=disable
+      RABBITMQ_CONN_STRING: amqp://user:password@rabbitmq:5672/
   order-pg:
     image: postgres:latest
     environment:
@@ -17,9 +22,20 @@ services:
     build:
       context: .
       dockerfile: payment/Dockerfile
+    environment:
+      PG_CONN_STRING: postgres://payment:secret@payment-pg:5432/payment?sslmode=disable
+      RABBITMQ_CONN_STRING: amqp://user:password@rabbitmq:5672/
   payment-pg:
     image: postgres:latest
     environment:
       - POSTGRES_PASSWORD=secret
       - POSTGRES_USER=payment
       - POSTGRES_DB=payment
+  rabbitmq:
+    image: rabbitmq:3.11-management
+    ports:
+      - "5672:5672" 
+      - "15672:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=user
+      - RABBITMQ_DEFAULT_PASS=password

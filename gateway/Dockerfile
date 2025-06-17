@@ -1,4 +1,4 @@
-FROM golang:1.24.2 AS builder
+FROM golang:1.24.3 AS builder
 
 WORKDIR /app
 
@@ -10,7 +10,7 @@ COPY ./gateway .
 
 RUN go build -o main cmd/gateway/main.go
 
-FROM ubuntu:latest
+FROM debian:latest
 
 WORKDIR /app
 
