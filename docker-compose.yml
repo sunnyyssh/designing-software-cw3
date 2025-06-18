@@ -19,6 +19,8 @@ services:
       - POSTGRES_PASSWORD=secret
       - POSTGRES_USER=order
       - POSTGRES_DB=order
+    volumes:
+      - order-postgres-data:/var/lib/postgresql/data
   payment:
     build:
       context: .
@@ -32,6 +34,8 @@ services:
       - POSTGRES_PASSWORD=secret
       - POSTGRES_USER=payment
       - POSTGRES_DB=payment
+    volumes:
+      - payment-postgres-data:/var/lib/postgresql/data
   rabbitmq:
     image: rabbitmq:3.11-management
     ports:
@@ -40,3 +44,7 @@ services:
     environment:
       - RABBITMQ_DEFAULT_USER=user
       - RABBITMQ_DEFAULT_PASS=password
+volumes:
+  payment-postgres-data:
+  order-postgres-data:
+  

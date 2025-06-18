@@ -57,11 +57,14 @@ func (s *OrderService) CreateOrder(
 		return nil, err
 	}
 
-	repo.Outbox().Add(ctx, model.OrderMessage{
+	err = repo.Outbox().Add(ctx, model.OrderMessage{
 		ID:     order.ID,
 		UserID: order.UserID,
 		Amount: order.Amount,
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	return order, nil
 }

@@ -3,7 +3,10 @@ package outbox
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -52,7 +55,11 @@ func (w *Worker) Run(ctx context.Context) error {
 				continue
 			}
 
-			w.logger.InfoContext(ctx, "serving outbox", "cnt", cnt)
+			if cnt == 0 {
+				w.logger.DebugContext(ctx, "serving outbox", "cnt", cnt)
+			} else {
+				w.logger.InfoContext(ctx, "serving outbox", "cnt", cnt)
+			}
 		}
 	}
 }
@@ -73,6 +80,9 @@ func (w *Worker) singleRun(ctx context.Context) (cnt int, err error) {
 	}()
 
 	rows, err := tx.Query(ctx, `SELECT id, message FROM outbox LIMIT $1`, w.cfg.BatchSize)
+	if err != nil {
+		return 0, err
+	}
 	defer rows.Close()
 
 	messages := make([]Message, 0, w.cfg.BatchSize)
@@ -82,6 +92,7 @@ func (w *Worker) singleRun(ctx context.Context) (cnt int, err error) {
 		if err := rows.Scan(&msg.ID, &msg.Message); err != nil {
 			return 0, err
 		}
+
 		messages = append(messages, msg)
 	}
 
@@ -103,10 +114,32 @@ func (w *Worker) singleRun(ctx context.Context) (cnt int, err error) {
 	}
 
 	ids := make([]int, 0, len(messages))
+	for _, msg := range messages {
+		ids = append(ids, msg.ID)
+	}
 
-	if _, err := tx.Exec(ctx, `DELETE FROM outbox WHERE id IN $1`, ids); err != nil {
+	idsQuery, idsArgs := sqlArgs(ids, 1)
+
+	if _, err := tx.Exec(ctx, fmt.Sprintf(`DELETE FROM outbox WHERE id IN (%s)`, idsQuery), idsArgs...); err != nil {
 		return 0, err
 	}
 
 	return len(messages), nil
+}
+
+func sqlArgs[T any](args []T, start int) (string, []any) {
+	var q strings.Builder
+	anyArgs := make([]any, 0, len(args))
+
+	for i, arg := range args {
+		anyArgs = append(anyArgs, arg)
+
+		q.WriteString("$")
+		q.WriteString(strconv.Itoa(start + i))
+		if i != len(args)-1 {
+			q.WriteString(", ")
+		}
+	}
+
+	return q.String(), anyArgs
 }

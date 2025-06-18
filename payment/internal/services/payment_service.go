@@ -34,6 +34,14 @@ func (s *PaymentService) CreateAccount(ctx context.Context, userID uuid.UUID) (_
 	}
 	defer endTx(ctx, &err)
 
+	_, err = repo.Account().GetAccount(ctx, userID)
+	if err != nil && !errs.IsNotFound(err) {
+		return nil, err
+	}
+	if err == nil {
+		return nil, errs.BadRequest("such user already has account")
+	}
+
 	acc := &model.Account{
 		UserID: userID,
 		Amount: 0,
@@ -92,11 +100,11 @@ func (s *PaymentService) ServeOrder(ctx context.Context, order *model.OrderMessa
 		return err
 	}
 
-	if acc.Amount+order.Amount < 0 {
+	if acc.Amount-order.Amount < 0 {
 		return outboxFunc(model.StatusCancelled)
 	}
 
-	acc.Amount += order.Amount
+	acc.Amount -= order.Amount
 
 	if err := repo.Account().UpdateAccount(ctx, acc); err != nil {
 		return err

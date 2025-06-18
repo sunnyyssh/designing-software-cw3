@@ -20,7 +20,7 @@ func NewPublisher(ch *amqp091.Channel, q *amqp091.Queue) *Publisher {
 }
 
 func (p *Publisher) Publish(ctx context.Context, msgs ...any) (err error) {
-	for msg := range msgs {
+	for _, msg := range msgs {
 		body, err := json.Marshal(msg)
 		if err != nil {
 			return err

@@ -2,25 +2,31 @@ package rabbit
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/gofrs/uuid"
 	"github.com/rabbitmq/amqp091-go"
+	"github.com/sunnyyssh/designing-software-cw3/order/internal/model"
 )
 
-type Listener struct {
-	db     *pgxpool.Pool
-	ch     *amqp091.Channel
-	q      *amqp091.Queue
-	logger *slog.Logger
+type OrderService interface {
+	SetOrderStatus(ctx context.Context, id uuid.UUID, status model.OrderStatus) (err error)
 }
 
-func NewListener(db *pgxpool.Pool, ch *amqp091.Channel, q *amqp091.Queue, logger *slog.Logger) *Listener {
+type Listener struct {
+	service OrderService
+	ch      *amqp091.Channel
+	q       *amqp091.Queue
+	logger  *slog.Logger
+}
+
+func NewListener(service OrderService, ch *amqp091.Channel, q *amqp091.Queue, logger *slog.Logger) *Listener {
 	return &Listener{
-		db:     db,
-		ch:     ch,
-		q:      q,
-		logger: logger,
+		service: service,
+		ch:      ch,
+		q:       q,
+		logger:  logger,
 	}
 }
 
@@ -61,26 +67,12 @@ LOOP:
 	return nil
 }
 
-func (l *Listener) handleMessage(ctx context.Context, msg amqp091.Delivery, logger *slog.Logger) (err error) {
-	tx, err := l.db.Begin(ctx)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err != nil {
-			tx.Rollback(ctx)
-		}
-	}()
-
-	_, err = tx.Exec(ctx, `INSERT INTO inbox (message) VALUES ($1)`, msg.Body)
-	if err != nil {
+func (l *Listener) handleMessage(ctx context.Context, msg amqp091.Delivery, logger *slog.Logger) error {
+	logger.DebugContext(ctx, "got message with body", "body", string(msg.Body))
+	var orderMsg model.OrderServedMessage
+	if err := json.Unmarshal(msg.Body, &orderMsg); err != nil {
 		return err
 	}
 
-	if err := tx.Commit(ctx); err != nil {
-		return err
-	}
-
-	logger.Info("message appended to inbox table")
-	return nil
+	return l.service.SetOrderStatus(ctx, orderMsg.ID, orderMsg.Status)
 }

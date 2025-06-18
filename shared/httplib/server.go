@@ -49,7 +49,7 @@ func (s *Server) Mount(prefix string) *Server {
 	copy(cpMiddlewares, s.middlewares)
 
 	return &Server{
-		pathPrefix:  s.pathPrefix,
+		pathPrefix:  s.pathPrefix + prefix,
 		middlewares: cpMiddlewares,
 		server:      s.server,
 	}
@@ -62,7 +62,7 @@ func (s *Server) Handle(method, path string, handler HandlerFunc) *Server {
 	}
 
 	pattern := fmt.Sprintf("%s %s%s", method, s.pathPrefix, path)
-	s.server.Handle(pattern, HandlerJSON(handler))
+	s.server.Handle(pattern, f)
 
 	return s
 }

@@ -16,7 +16,6 @@ import (
 	"github.com/sunnyyssh/designing-software-cw3/payment/internal/rest"
 	"github.com/sunnyyssh/designing-software-cw3/payment/internal/services"
 	"github.com/sunnyyssh/designing-software-cw3/payment/internal/storage"
-	"github.com/sunnyyssh/designing-software-cw3/shared/auth"
 	"github.com/sunnyyssh/designing-software-cw3/shared/httplib"
 	"github.com/sunnyyssh/designing-software-cw3/shared/inbox"
 	"github.com/sunnyyssh/designing-software-cw3/shared/outbox"
@@ -81,7 +80,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	defer ch.Close()
 
 	qSend, err := ch.QueueDeclare(
-		QueueOrderToPayment, // name
+		QueuePaymentToOrder, // name
 		true,                // durable (очередь переживет перезапуск брокера)
 		false,               // delete when unused
 		false,               // exclusive
@@ -115,7 +114,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	}()
 
 	qReceive, err := ch.QueueDeclare(
-		QueuePaymentToOrder, // name
+		QueueOrderToPayment, // name
 		true,                // durable
 		false,               // delete when unused
 		false,               // exclusive
@@ -127,7 +126,11 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	}
 
 	queueListener := rabbit.NewListener(db, ch, &qReceive, logger)
-	go queueListener.Run(ctx)
+	go func() {
+		if err := queueListener.Run(ctx); err != nil {
+			logger.Error("listening queue failed", "error", err)
+		}
+	}()
 
 	st := storage.NewStorage(db)
 
@@ -155,10 +158,9 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	handler := rest.NewPaymentHandler(service)
 
 	r.Mount("/account").
-		Use(auth.MiddlewareUserID).
-		GET("", handler.GetAccount).
-		PUT("", handler.CreateAccount).
-		POST("/amount", handler.ReplenishAccount)
+		GET("/{id}", handler.GetAccount).
+		PUT("/{id}", handler.CreateAccount).
+		POST("/{id}/amount", handler.ReplenishAccount)
 
 	if err := http.ListenAndServe(":8080", r); err != nil {
 		return err

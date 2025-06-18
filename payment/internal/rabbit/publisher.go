@@ -3,6 +3,7 @@ package rabbit
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/rabbitmq/amqp091-go"
 )
@@ -20,7 +21,7 @@ func NewPublisher(ch *amqp091.Channel, q *amqp091.Queue) *Publisher {
 }
 
 func (p *Publisher) Publish(ctx context.Context, msgs ...any) (err error) {
-	for msg := range msgs {
+	for _, msg := range msgs {
 		body, err := json.Marshal(msg)
 		if err != nil {
 			return err
@@ -32,6 +33,7 @@ func (p *Publisher) Publish(ctx context.Context, msgs ...any) (err error) {
 			false,    // mandatory
 			false,    // immediate
 			amqp091.Publishing{
+				Timestamp:   time.Now(),
 				ContentType: "application/json",
 				Body:        []byte(body),
 			},

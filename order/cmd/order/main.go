@@ -15,7 +15,6 @@ import (
 	"github.com/sunnyyssh/designing-software-cw3/order/internal/rest"
 	"github.com/sunnyyssh/designing-software-cw3/order/internal/services"
 	"github.com/sunnyyssh/designing-software-cw3/order/internal/storage"
-	"github.com/sunnyyssh/designing-software-cw3/shared/auth"
 	"github.com/sunnyyssh/designing-software-cw3/shared/httplib"
 	"github.com/sunnyyssh/designing-software-cw3/shared/outbox"
 )
@@ -105,14 +104,16 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		return err
 	}
 
-	queueListener := rabbit.NewListener(db, ch, &qReceive, logger)
-	go queueListener.Run(ctx)
-
 	st := storage.NewStorage(db)
 
 	service := services.NewOrderService(st)
 
-	handler := rest.NewOrderHandler(service)
+	queueListener := rabbit.NewListener(service, ch, &qReceive, logger)
+	go func() {
+		if err := queueListener.Run(ctx); err != nil {
+			logger.ErrorContext(ctx, "listening queue failed", "error", err)
+		}
+	}()
 
 	outboxWorker := outbox.NewWorker(
 		db,
@@ -124,9 +125,10 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		logger,
 	)
 
+	handler := rest.NewOrderHandler(service)
+
 	r.Mount("/order").
-		Use(auth.MiddlewareUserID).
-		GET("", handler.GetOrder).
+		GET("/{orderId}", handler.GetOrder).
 		GET("/all", handler.ListOrders).
 		POST("", handler.CreateOrder)
 
@@ -164,6 +166,11 @@ var migrations = []string{
 		amount BIGINT NOT NULL,
 		status VARCHAR(255) NOT NULL DEFAULT 'new'
 	);`,
+
+	`CREATE TABLE IF NOT EXISTS outbox (
+		id SERIAL,
+		message JSONB NOT NULL
+	)`,
 
 	`CREATE TABLE IF NOT EXISTS outbox (
 		id SERIAL,

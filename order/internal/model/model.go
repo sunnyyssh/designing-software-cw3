@@ -23,3 +23,8 @@ type OrderMessage struct {
 	UserID uuid.UUID `json:"user_id"`
 	Amount int64     `json:"amount"`
 }
+
+type OrderServedMessage struct {
+	ID     uuid.UUID   `json:"id"`
+	Status OrderStatus `json:"status"`
+}

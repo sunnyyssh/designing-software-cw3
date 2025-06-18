@@ -40,11 +40,14 @@ func (l *Listener) Run(ctx context.Context) error {
 		return err
 	}
 
+	logger.InfoContext(ctx, "consuming queue")
+
 LOOP:
 	for {
 		select {
 		case msg, ok := <-msgs:
 			if !ok {
+				logger.Info("stopping")
 				break LOOP
 			}
 

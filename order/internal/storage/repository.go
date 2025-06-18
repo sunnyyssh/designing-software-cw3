@@ -108,7 +108,7 @@ func (o *outbox) Add(ctx context.Context, msg any) error {
 		return fmt.Errorf("failed to marshal message: %w", err)
 	}
 
-	if _, err := o.db.Exec(ctx, `INSERT INTO outbox (message) VALUES $1`, data); err != nil {
+	if _, err := o.db.Exec(ctx, `INSERT INTO outbox (message) VALUES ($1)`, data); err != nil {
 		return err
 	}
 	return nil

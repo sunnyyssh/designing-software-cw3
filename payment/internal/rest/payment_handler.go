@@ -6,7 +6,6 @@ import (
 
 	"github.com/gofrs/uuid"
 	"github.com/sunnyyssh/designing-software-cw3/payment/internal/model"
-	"github.com/sunnyyssh/designing-software-cw3/shared/auth"
 	"github.com/sunnyyssh/designing-software-cw3/shared/errs"
 	"github.com/sunnyyssh/designing-software-cw3/shared/httplib"
 )
@@ -28,7 +27,7 @@ func NewPaymentHandler(service PaymentService) *PaymentHandler {
 func (h *PaymentHandler) GetAccount(req *http.Request) (any, error) {
 	ctx := req.Context()
 
-	userID := auth.MustUserIDFromContext(ctx)
+	userID := uuid.Must(uuid.FromString(req.PathValue("id")))
 
 	return h.service.GetAccount(ctx, userID)
 }
@@ -36,7 +35,7 @@ func (h *PaymentHandler) GetAccount(req *http.Request) (any, error) {
 func (h *PaymentHandler) CreateAccount(req *http.Request) (any, error) {
 	ctx := req.Context()
 
-	userID := auth.MustUserIDFromContext(ctx)
+	userID := uuid.Must(uuid.FromString(req.PathValue("id")))
 
 	return h.service.CreateAccount(ctx, userID)
 }
@@ -44,7 +43,7 @@ func (h *PaymentHandler) CreateAccount(req *http.Request) (any, error) {
 func (h *PaymentHandler) ReplenishAccount(req *http.Request) (any, error) {
 	ctx := req.Context()
 
-	userID := auth.MustUserIDFromContext(ctx)
+	userID := uuid.Must(uuid.FromString(req.PathValue("id")))
 
 	type Request struct {
 		Amount int64 `json:"amount"`
