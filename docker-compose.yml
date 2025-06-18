@@ -3,6 +3,7 @@ services:
     build:
       context: .
       dockerfile: gateway/Dockerfile
+    ports: ["80:80"]
     volumes:
       - "./gateway-config.yaml:/etc/gateway/config.yaml:ro"
   order:

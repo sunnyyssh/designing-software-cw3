@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -37,13 +38,22 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		return err
 	}
 	defer db.Close()
-	if err = db.Ping(ctx); err != nil {
+	for range 10 {
+		if err = db.Ping(ctx); err == nil {
+			break
+		}
+		logger.Warn("Failed to connect to PostgreSQL, retrying in 2 seconds...", "error", err)
+		time.Sleep(2 * time.Second)
+	}
+	if err != nil {
 		return err
 	}
 
-	_, err = db.Exec(ctx, `CREATE TABLE IF NOT EXISTS accounts (user_id UUID PRIMARY KEY, amount BIGINT NOT NULL DEFAULT 0);`)
-	if err != nil {
-		return err
+	for _, migration := range migrations {
+		_, err = db.Exec(ctx, migration)
+		if err != nil {
+			return fmt.Errorf("failed to apply migration \"%s\": %w", migration, err)
+		}
 	}
 
 	rabbitMQConnString := os.Getenv("RABBITMQ_CONN_STRING")
@@ -162,5 +172,20 @@ func main() {
 
 	if err := run(ctx, logger); err != nil {
 		logger.ErrorContext(ctx, "run failed", "error", err)
+		os.Exit(1)
 	}
+}
+
+var migrations = []string{
+	`CREATE TABLE IF NOT EXISTS accounts (user_id UUID PRIMARY KEY, amount BIGINT NOT NULL DEFAULT 0);`,
+
+	`CREATE TABLE IF NOT EXISTS inbox (
+		id SERIAL,
+		message JSONB NOT NULL
+	)`,
+
+	`CREATE TABLE IF NOT EXISTS outbox (
+		id SERIAL,
+		message JSONB NOT NULL
+	)`,
 }

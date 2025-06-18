@@ -93,6 +93,10 @@ func (w *Worker) singleRun(ctx context.Context) (cnt int, err error) {
 		return 0, err
 	}
 
+	if len(messages) == 0 {
+		return 0, nil
+	}
+
 	events := make([]json.RawMessage, 0, len(messages))
 	for _, msg := range messages {
 		events = append(events, msg.Message)

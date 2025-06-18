@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -35,14 +36,22 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		return err
 	}
 	defer db.Close()
-	if err = db.Ping(ctx); err != nil {
+
+	for range 10 {
+		if err = db.Ping(ctx); err == nil {
+			break
+		}
+		logger.Warn("Failed to connect to PostgreSQL, retrying in 2 seconds...", "error", err)
+		time.Sleep(2 * time.Second)
+	}
+	if err != nil {
 		return err
 	}
 
 	for _, migration := range migrations {
 		_, err = db.Exec(ctx, migration)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to apply migration \"%s\": %w", migration, err)
 		}
 	}
 
@@ -50,7 +59,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 
 	var conn *amqp091.Connection
 
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		conn, err = amqp091.Dial(rabbitMQConnString)
 		if err == nil {
 			break
@@ -143,26 +152,20 @@ func main() {
 
 	if err := run(ctx, logger); err != nil {
 		logger.ErrorContext(ctx, "run failed", "error", err)
+		os.Exit(1)
 	}
 }
 
 var migrations = []string{
-	`CREATE TYPE order_status AS ENUM ('new', 'finished', 'cancelled');`,
-
-	`CREATE TABLE orders (
+	`CREATE TABLE IF NOT EXISTS orders (
 		id UUID PRIMARY KEY,
 		user_id UUID NOT NULL,
 		description TEXT,
 		amount BIGINT NOT NULL,
-		status order_status NOT NULL DEFAULT 'new'
+		status VARCHAR(255) NOT NULL DEFAULT 'new'
 	);`,
 
-	`CREATE TABLE outbox (
-		id SERIAL,
-		message JSONB NOT NULL
-	)`,
-
-	`CREATE TABLE inbox (
+	`CREATE TABLE IF NOT EXISTS outbox (
 		id SERIAL,
 		message JSONB NOT NULL
 	)`,
